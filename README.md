@@ -2,9 +2,16 @@
 ![img-respeaker](https://statics3.seeedstudio.com/seeed/img/2016-09/EYmleODafL5rcUKhEV5FRzgO.jpg)
 
 These codes are for [Respeaker][1] ***Production Test***, there includes three parts of codes,  <br>
-1.ArduinoCodexxx is for on board 32u4. <br>
-2.SDCardCodexxx is for MT7688 stored into SD card. <br>
-3.respeaker老化测试 do aging test for RGB LED. <br>
+## ArduinoCodexxx is for on board 32u4. <br>
+1.从U盘烧录固件的Arduino代码 <br>
+respeaker_production_test/ArduinoCode20170827/respeaker_arduino_library/arduino_7688fw_upload_from_udisk <br>
+2.麦克风矩阵板测试代码 <br>
+respeaker_production_test/ArduinoCode20170827/respeaker_arduino_library/arduino_micArray_test <br>
+3.U盘烧录固件和Core测试代码 <br>
+respeaker_production_test/ArduinoCode20170827/respeaker_arduino_library/arduino_respeakerCore_test <br>
+
+## SDCardCodexxx is for MT7688 stored into SD card. <br>
+## respeaker老化测试 do aging test for RGB LED. <br>
 
 
 # Change log

@@ -944,7 +944,7 @@ void loop(void)
           Serial.println("\n\rSD not installed!");
           LEDActionID_error(led_sdcard_not_exist);
           // Report Error
-          main_task_id = main_task_end;C
+          main_task_id = main_task_end;
           UARTtimeStart = millis();
         }
 

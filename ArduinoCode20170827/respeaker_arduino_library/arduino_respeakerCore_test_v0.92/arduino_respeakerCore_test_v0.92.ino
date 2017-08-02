@@ -30,6 +30,10 @@ volatile uint32_t UARTtimeStart;
 volatile bool UARTtimecnt_start = true;
 const char *str_console_activated = "root@ReSpeaker:";
 const char *str_reboot = "reboot -f";
+const char *str_bootOperation = "9: Load Boot Loader code then write to Flash via TFTP.";
+const char *str_readingFW = "reading lks7688.img";
+const char *str_writingFW = "writing lks7688.img to flash";
+const char *str_fwUpgrade_done = "Done!";
 const char *str_autorunfile = "autorun.sh";
 const char *str_sdcard_exist = "SDCARD_EXIST";
 const char *str_udisk_exist = "lks7688.img";
@@ -116,15 +120,21 @@ enum board_test_spi_cmd {
 
 enum main_task{
   main_task_begin = 0,
-  // main_task_upgrade_from_bootloader = 1,
+
+  main_task_upgrade_from_bootloader = 1,
   main_task_detect_console = 2,
   main_task_check_if_fw_upgraded = 3,
   main_task_reboot = 4,
-  // main_task_choose_boot_operation = 5,
-  // main_task_fw_upgrade_Start = 6,
-  // main_task_fw_reading = 7,
-  // main_task_fw_writting = 8,
-  // main_task_fw_upgrade_done = 9,
+
+  main_task_choose_boot_operation = 5,
+
+  main_task_fw_upgrade_Start = 6,
+
+  main_task_fw_reading = 7,
+
+  main_task_fw_writting = 8,
+
+  main_task_fw_upgrade_done = 9,
   main_task_hw_test_arduino_gpio = 10,
   main_task_hw_test_arduino_adc = 11,
   main_task_check_is_sdcard_installed = 12,
@@ -134,7 +144,8 @@ enum main_task{
   main_task_wait_for_power_button = 16,
 };
 
-volatile int main_task_id = main_task_detect_console;
+
+volatile int main_task_id = main_task_begin;
 volatile bool main_task_execute_once = false;
 
 const uint8_t report_led_begin = 6;
@@ -150,10 +161,21 @@ enum upgrade_process_led_index {
 //     // id - touch sensor id (0 ~ 7), event - 1: touch, 0: release
 // }
 
+void detect_console_timeout()
+{
+
+} 
+
 // Send "Enter" to detect console
 void detcet_console()
 {
   static uint32_t timeoutcnt = millis();
+
+  // Setting timeout 20 seconds
+  if(20000 < millis() - timeoutcnt) {
+    detect_console_timeout();
+  }
+
   MT7688_send_Enter();
 }
 
@@ -164,6 +186,24 @@ void MT7688_send_Enter(void)
 {
   delay(500);
   Serial1.println("");
+}
+
+void MT7688_send_fw_upgrade(void)
+{
+  Serial1.write('5');
+  //Serial1.println("sysupgrade /Media/SD-P2/openwrt-c1.bin");
+  //Serial1.println("sysupgrade /Media/USB-A1/lks7688.img");
+}
+
+void MT7688_send_reboot(void)
+{
+  //Serial1.println(str_reboot);
+  pinMode(12, OUTPUT);
+  digitalWrite(12, HIGH);
+  delay(500);
+  digitalWrite(12, LOW);
+  delay(500);
+  digitalWrite(12, HIGH);
 }
 
 void MT7688_check_is_borad_tested(void)
@@ -203,17 +243,28 @@ void MT7688_delete_test_pass(void)
   //Serial1.println("rm /etc/test_pass");
 }
 
-// void MT7688_stop_mopidy(void)
-// {
-//   Serial1.println("/etc/init.d/mopidy stop");
-//   Serial.println("\r\netc/init.d/mopidy stop\r\n");
-// }
 
-// void MT7688_run_sd_daemon(void)
-// {
-//   Serial1.println("./root/sd_daemon.sh&");
-//   Serial.println("\r\nrun sd_daemon.sh\r\n");
-// }
+void MT7688_stop_mopidy(void)
+
+{
+
+  Serial1.println("/etc/init.d/mopidy stop");
+
+  Serial.println("\r\netc/init.d/mopidy stop\r\n");
+
+
+}
+
+
+void MT7688_run_sd_daemon(void)
+
+{
+
+  Serial1.println("./root/sd_daemon.sh&");
+
+  Serial.println("\r\nrun sd_daemon.sh\r\n");
+
+}
 /* Send command to 7688 console */
 
 // @brief Compare Seiral steam byte by byte
@@ -560,6 +611,20 @@ void board_test_handle(uint8_t *data, uint8_t len)
 
   switch (data[0]) {
     case spiCmd_led_control:   // [cmd, mode, number, speed_H, speed_L, color[3]]
+      // if(8 != len) {
+      //   break;
+      // }
+      // rgb_led_state.mode = data[1];
+      // rgb_led_state.number = data[2];
+      // rgb_led_state.speed = data[3] * 256 + data[4];
+
+      // rgb_led_state.color = 0;
+      // rgb_led_state.color |= data[5];
+      // rgb_led_state.color <<= 8;
+      // rgb_led_state.color |= data[6];
+      // rgb_led_state.color <<= 8;
+      // rgb_led_state.color |= data[7];
+
       if(7 != len)  // [cmd, led_index, speed_H, speed_L, color[3]]
       {
         break;
@@ -573,6 +638,16 @@ void board_test_handle(uint8_t *data, uint8_t len)
       color_tmp  |= data[6];
       //color_tmp |= 0x050000 | (data[5] << 8) | data[6];
       test_result_colors[led_index] = color_tmp;
+
+// #if DEBUG_ENABLE
+//       Serial.print("RGB LED control: ");
+//       Serial.print("mode-");
+//       Serial.print(rgb_led_state.mode);
+//       Serial.print(" number-");
+//       Serial.print(rgb_led_state.number);
+//       Serial.print(" speed-");
+//       Serial.println(rgb_led_state.speed);
+// #endif
       break;
 
     case spiCmd_gpio_control: // [cmd, pin, direction, state]
@@ -649,6 +724,9 @@ void board_test_handle(uint8_t *data, uint8_t len)
 void spi_handle_event(uint8_t addr, uint8_t *data, uint8_t len)
 {
   if (0 == addr) {
+// #if DEBUG_ENABLE
+//     Serial.println("Receive SPI data!");
+// #endif
     // Handle spi data for board testing
     board_test_handle(data, len); 
   }
@@ -657,26 +735,70 @@ void spi_handle_event(uint8_t addr, uint8_t *data, uint8_t len)
 
 void setup (void)
 {
+
+  pinMode(12, OUTPUT);
+  digitalWrite(12, LOW);
   respeaker.begin(0,1,1);
   //respeaker.attach_touch_handler(touch_event);
   respeaker.attach_spi_handler(spi_handle_event);
-  LEDActoinID_begin();
-  Serial1.begin(57600);
 
-  // rgb_led_state.number = 1;
-  // rgb_led_state.color = COLOR_BLUE;
+
+
+
+  // rgb_led_state.number = LED_NUM;
+
+  // rgb_led_state.color = COLOR_WHITE;
   // rgb_led_state.mode = 1;
-  rgb_led_state.speed = 3000;
+
+  // rgb_led_state.speed = 0;
 }
 
 void loop(void)
 {
   int ret;
   
+  // arduino_gpio_test();
+  // while(1);
+
   switch(main_task_id) {
+
+    case main_task_begin:
+      LEDActoinID_begin();
+      // Collect all info of a new board, like whether it'd been upgraded or not.
+
+      main_task_id = main_task_upgrade_from_bootloader;
+      rgb_led_state.color = COLOR_BLUE;
+      rgb_led_state.number = 1;
+      rgb_led_state.mode = 0;
+      rgb_led_state.speed = 200;
+      
+      delay(2000);
+      UARTtimeStart = millis();
+      digitalWrite(12, HIGH);
+      
+      break;
+
+    case main_task_upgrade_from_bootloader:
+      ret = parseStrFromSerial(str_bootOperation, strlen(str_bootOperation));
+      if(1 == ret) {
+        MT7688_send_fw_upgrade();
+        Serial.println("\n\r\n\rStart upgrade firmware...\n\r");
+        rgb_led_state.color = COLOR_GREEN;
+        rgb_led_state.number = 2;
+        main_task_id = main_task_fw_upgrade_Start;
+      }
+
+      if(3000 < millis() - UARTtimeStart) {
+        Serial.println("\n\r\n\rStart detecting console...\n\r");
+        main_task_id = main_task_detect_console;
+      }
+
+      break;
+
     case main_task_detect_console:
       loop_event_1(detcet_console, 1000);
-      loop_event_2(LEDActoinID_color_wheel, rgb_led_state.speed);
+
+      loop_event_2(LEDActoinID_loop, rgb_led_state.speed);
       ret = parseStrFromSerial(str_console_activated, strlen(str_console_activated));
       
       if(1 == ret) {
@@ -716,7 +838,76 @@ void loop(void)
       }
 
       break;
+
+    case main_task_choose_boot_operation:
+      // loop_event_1(LEDActoinID_loop, rgb_led_state.speed);
+      // ret = parseStrFromSerial(str_bootOperation, strlen(str_bootOperation));
+      // if(1 == ret) {
+      //   MT7688_send_fw_upgrade();
+      //   rgb_led_state.number = 5;
+      //   rgb_led_state.color = COLOR_WHITE;
+      //   rgb_led_state.mode = 0;
+      //   rgb_led_state.speed = 100;
+      //   main_task_id = main_task_fw_upgrade_Start;
+      //   UARTtimeStart = millis();
+      // }
+      break;
+
+    case main_task_fw_upgrade_Start:
+      loop_event_1(LEDActoinID_loop, rgb_led_state.speed);
+      ret = parseStrFromSerial(str_readingFW, strlen(str_readingFW));
+      if(1 == ret) {
+        rgb_led_state.number = 3;
+        rgb_led_state.mode = 0;
+        rgb_led_state.speed = 100;
+        main_task_id = main_task_fw_reading;
+      }
+
+      if(10000 < millis() - UARTtimeStart) {
+        LEDActionID_error(led_fw_reading);
+        main_task_id = main_task_end;
+      }
+
+      break;
+
+    case main_task_fw_reading:
+      loop_event_2(LEDActoinID_loop, rgb_led_state.speed);
+      ret = parseStrFromSerial(str_writingFW, strlen(str_writingFW));
+      if(1 ==ret) {
+        rgb_led_state.number = LED_NUM;
+        rgb_led_state.color = COLOR_WHITE;
+        rgb_led_state.mode = 1;
+        rgb_led_state.speed = 50;
+        main_task_id = main_task_fw_writting;
+        UARTtimeStart = millis();
+      }
+      break;
+
+    case main_task_fw_writting:
+      loop_event_1(LEDActoinID_color_wheel, 3000);
+      ret = parseStrFromSerial(str_fwUpgrade_done, strlen(str_fwUpgrade_done));
+      if(1 ==ret) {
+        LEDActoinID_loop();
+        LEDActoinID_loop();
+        main_task_id = main_task_fw_upgrade_done;
+      }
+
+      if (300000 < millis() - UARTtimeStart) {
+        // writeing fw timeuot
+        LEDActionID_error(led_fw_writing);
+        main_task_id = main_task_end;
+      }
+      break;
+
+    case main_task_fw_upgrade_done:
+      //loop_event_1(LEDActoinID_loop, rgb_led_state.speed);
+      respeaker._loop();
+      break;
+
     case main_task_hw_test_arduino_gpio:
+      //loop_event_1(LEDActoinID_HW_testing, rgb_led_state.speed);
+      //respeaker._loop();
+
       if (main_task_execute_once) {
         main_task_execute_once = false;
         arduino_gpio_test();
@@ -753,7 +944,7 @@ void loop(void)
           Serial.println("\n\rSD not installed!");
           LEDActionID_error(led_sdcard_not_exist);
           // Report Error
-          main_task_id = main_task_end;
+          main_task_id = main_task_end;C
           UARTtimeStart = millis();
         }
 
@@ -777,4 +968,4 @@ void loop(void)
 
     default: break;
   }
-}
+}syntax

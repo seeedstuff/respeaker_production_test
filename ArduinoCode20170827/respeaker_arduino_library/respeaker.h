@@ -12,7 +12,9 @@
 #define TOUCH_DETECT_INTERVAL   4 // ms
 #define TOUCH_DEFAULT_THRESHOLD 32
 #define PIXELS_NUM              12
-#define PIXELS_PIN              3
+#ifndef PIXELS_PIN
+    #define PIXELS_PIN              11
+#endif
 
 class ReSpeaker
 {

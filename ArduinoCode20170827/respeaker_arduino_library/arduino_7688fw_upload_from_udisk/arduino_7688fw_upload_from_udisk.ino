@@ -4,10 +4,12 @@
  * by Seeed Studio (http://seeedstudio.com)
  */
 
+// Define Seeeduino I2C-SCL pin as RGB output pin
+#define PIXELS_PIN              3
+
 #include <SPI.h>
 #include "respeaker.h"
 #include "TimerOne.h"
-#include <SoftwareSerial.h>
 
 #define DEBUG_ENABLE 1
 
